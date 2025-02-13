@@ -5,9 +5,10 @@ import { User } from '../../../models/user'; // User model
 import jwt from 'jsonwebtoken';
 
 export async function POST(req) {
-  await mongooseConnection(); // Ensure MongoDB connection
-
+  
   try {
+    await mongooseConnection(); // Ensure MongoDB connection
+
     const body = await req.json();
     const { fullName, email, password, mobileNumber, role = 'user' } = body;
 
