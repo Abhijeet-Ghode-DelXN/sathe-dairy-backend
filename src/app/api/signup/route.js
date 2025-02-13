@@ -41,6 +41,6 @@ export async function POST(req) {
     return NextResponse.json({ message: 'Signup Successful', token }, { status: 201 });
   } catch (error) {
     console.log('Error during signup:', error);
-    return NextResponse.json({ error: 'Signup Failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Signup Failed', details: error.message }, { status: 500 });
   }
 }
