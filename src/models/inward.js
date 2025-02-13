@@ -59,7 +59,7 @@ const InwardSchema = new Schema(
       vehicleType: {
         type: String,
         required: true,
-        enum: ["Truck", "Van", "Container", "Tanker", "Other"],
+        // enum: ["Truck", "Van", "Container", "Tanker", "Other"],
         trim: true,
       },
       driverMobileNumber: {
