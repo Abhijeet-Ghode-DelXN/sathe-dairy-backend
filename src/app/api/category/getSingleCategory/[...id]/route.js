@@ -2,12 +2,14 @@
 import { NextResponse } from "next/server";
 
 import { Category } from "@/models/categories";
+import mongooseConnection from "@/lib/mongodb";
 export async function GET(req, { params }) {
   const { id } = await params; // `id` will be an array in a catch-all route
   const CategoryId = Array.isArray(id) ? id[0] : id; // Extract the first segment
   console.log("Category ID:", CategoryId); // Log to confirm extraction
 
   try {
+    mongooseConnection();
     // Validate the ID format
     if (!CategoryId || CategoryId.length !== 24) {
       return NextResponse.json({ message: "Invalid Category ID" }, { status: 400 });

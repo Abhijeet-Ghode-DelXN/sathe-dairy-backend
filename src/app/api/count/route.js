@@ -7,6 +7,7 @@ const client = new MongoClient(uri);
 
 export async function GET() {
   try {
+    mongooseConnection();
     // Connect to MongoDB
     await client.connect();
     const db = client.db('sathe_dairy_admin'); // Replace with your DB name

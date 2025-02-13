@@ -1,8 +1,11 @@
+import mongooseConnection from "@/lib/mongodb";
 import Warehouse from "@/models/warehouse";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
+    // Connect to MongoDB using Mongoose
+    mongooseConnection();
     // Fetch all warehouses from the database
     const warehouses = await Warehouse.find();
 

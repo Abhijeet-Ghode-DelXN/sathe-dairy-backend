@@ -1,6 +1,7 @@
 import { User } from '../../../models/user';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
+import mongooseConnection from '@/lib/mongodb';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -18,6 +19,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    mongooseConnection();
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {

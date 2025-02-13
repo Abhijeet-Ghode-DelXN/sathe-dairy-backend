@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'; 
 import { Inward } from '../../../../models/inward'; // Adjust the path if needed
 import { verify } from 'jsonwebtoken'; // If you're using JWT
+import mongooseConnection from '@/lib/mongodb';
 
 export async function POST(request) {
   try {
+    mongooseConnection();
     const body = await request.json();
 
     // Get the token from the Authorization header
