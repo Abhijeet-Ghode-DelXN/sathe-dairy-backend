@@ -9,7 +9,7 @@ const OutwardSchema = new Schema(
       required: true,
     },
     category: { type: String, required: true, trim: true },
-    quantity: { type: Number, required: true, min: 0 },
+    // quantity: { type: Number, required: true, min: 0 },
     total: { type: Number, required: true, min: 0 },
     paymentType: {
       type: String,
