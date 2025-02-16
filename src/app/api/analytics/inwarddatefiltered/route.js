@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { Inward } from "@/models/inward"; // Adjust the path based on your project structure
+import { Inward } from "@/models/inward";
 import mongooseConnection from "@/lib/mongodb";
 
 export async function GET(req) {
@@ -14,16 +14,18 @@ export async function GET(req) {
       return NextResponse.json({ message: "Start date and end date are required" }, { status: 400 });
     }
 
+    // Convert to start and end of the day in timestamp (milliseconds)
     const start = new Date(startDate);
-    const end = new Date(endDate);
+    start.setHours(0, 0, 0, 0);  // 00:00:00
 
-    if (isNaN(start) || isNaN(end)) {
-      return NextResponse.json({ message: "Invalid date format" }, { status: 400 });
-    }
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999); // 23:59:59
+
+    console.log("Filtering from:", start, "to:", end);
 
     // Fetch transactions within the date range
     const inwardTransactions = await Inward.find({
-      date: { $gte: start, $lte: end },
+      date: { $gte: start.getTime(), $lte: end.getTime() }
     }).sort({ date: -1 });
 
     return NextResponse.json(inwardTransactions, { status: 200 });
@@ -32,3 +34,4 @@ export async function GET(req) {
     return NextResponse.json({ message: "Internal server error" }, { status: 500 });
   }
 }
+
