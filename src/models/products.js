@@ -15,11 +15,11 @@ const ProductSchema = new Schema(
       required: true,
       trim: true,
     },
-    productDescription: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    // productDescription: {
+    //   type: String,
+    //   required: true,
+    //   trim: true,
+    // },
     productPrice: {
       type: Number,
       required: true,
@@ -36,10 +36,10 @@ const ProductSchema = new Schema(
       required: true,
       trim: true,
     },
-    image: {
-      type: String, // URL or file path for the product image
-      required: true,
-    },
+    // image: {
+    //   type: String, // URL or file path for the product image
+    //   required: true,
+    // },
     sellingPrice: {
       type: Number,
       required: true,
@@ -86,5 +86,7 @@ ProductSchema.virtual("totalBags").get(function () {
   return this.configuration.numberOfBags * this.configuration.skuQuantity; // Total bags based on config
 });
 
+
+delete mongoose.models.Product;
 // Export the Product model, creating it if it does not already exist
 export const Product = models.Product || model("Product", ProductSchema);
