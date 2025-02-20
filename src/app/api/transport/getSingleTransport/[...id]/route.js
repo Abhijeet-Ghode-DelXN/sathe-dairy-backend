@@ -1,7 +1,6 @@
 // import TransportDetails from "@/models/TransportDetails";
 import { NextResponse } from "next/server";
 import { TransportDetails } from "@/models/transport";
-import mongooseConnection from "@/lib/mongodb";
 
 export async function GET(req, { params }) {
   const { id } = await params; // `id` will be an array in a catch-all route
@@ -9,7 +8,6 @@ export async function GET(req, { params }) {
   console.log("transpot ID:", TransportDetailsId); // Log to confirm extraction
 
   try {
-    mongooseConnection();
     // Validate the ID format
     if (!TransportDetailsId || TransportDetailsId.length !== 24) {
       return NextResponse.json({ message: "Invalid TransportDetails ID" }, { status: 400 });

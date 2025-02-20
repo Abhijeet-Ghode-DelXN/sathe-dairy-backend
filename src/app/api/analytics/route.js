@@ -1,160 +1,113 @@
-import { NextResponse } from 'next/server'; 
-import { Inward } from '../../../models/inward'; 
-import { Outward } from "../../../models/outward";
-import { Customer } from "../../../models/customers";
-import { Category } from "../../../models/categories";
+import { NextResponse } from "next/server";
+// import { connectToDB } from "@utils/database"; // Adjust based on your DB connection
+import {Inward} from "../../../models/inward";
+import {Outward} from "../../../models/outward";
 import mongooseConnection from "@/lib/mongodb";
-import mongoose from 'mongoose';
 
-export async function GET(req) {
-  console.log("Received request"); // Log to track the request
-
-  // Collect all the data in one response
+export const GET = async (req) => {
   try {
     await mongooseConnection();
-    const data = {};
 
-    // Fetch all data without checking for 'type'
-    data.summary = await getSummary();
-    data.topCategories = await getTopCategories();
-    data.topProducts = await getTopProducts();
-    data.monthlyTrends = await getMonthlyTrends();
-    data.topCustomers = await getTopCustomers();
-    data.customerTransaction = await getCustomerTransactions();
+    const { searchParams } = new URL(req.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
-    // Return all data in a single response
-    return NextResponse.json(data);
+    // Validate input parameters
+    if (!startDate || !endDate) {
+      return NextResponse.json(
+        { error: "Both startDate and endDate are required" },
+        { status: 400 }
+      );
+    }
 
-  } catch (error) {
-    return NextResponse.json({ error: "Server Error", message: error.message }, { status: 500 });
-  }
-}
-
-// Get summary data
-async function getSummary() {
-  try {
-    const [totalCustomers, totalCategories, totalInwardTransactions, totalOutwardTransactions] = await Promise.all([
-      Customer.countDocuments(),
-      Category.countDocuments(),
-      Inward.countDocuments(),
-      Outward.countDocuments()
-    ]);
-
-    const [totalRevenue, outstandingPayments] = await Promise.all([
-      Outward.aggregate([{ $group: { _id: null, total: { $sum: "$total" } } }]),
-      Outward.aggregate([{ $group: { _id: null, outstanding: { $sum: "$outstandingPayment" } } }])
-    ]);
-
-    return {
-      totalCustomers,
-      totalCategories,
-      totalInwardTransactions,
-      totalOutwardTransactions,
-      totalRevenue: totalRevenue[0]?.total || 0,
-      outstandingPayments: outstandingPayments[0]?.outstanding || 0,
-    };
-  } catch (error) {
-    throw new Error("Server Error: " + error.message);
-  }
-}
-
-// Get top categories
-async function getTopCategories() {
-  try {
-    const topCategories = await Outward.aggregate([
-      { $group: { _id: "$category", totalSales: { $sum: "$total" } } },
-      { $sort: { totalSales: -1 } },
-      { $limit: 5 },
-    ]);
-    return topCategories;
-  } catch (error) {
-    throw new Error("Server Error: " + error.message);
-  }
-}
-
-// Get top products
-async function getTopProducts() {
-  try {
-    const topProducts = await Outward.aggregate([
-      { $unwind: "$productDetails" },
-      {
-        $group: {
-          _id: "$productDetails.productCode",
-          productName: { $first: "$productDetails.name" },
-          totalQuantity: { $sum: "$productDetails.quantity" },
-          totalRevenue: { $sum: { $multiply: ["$productDetails.quantity", "$productDetails.productPrice"] } },
-        },
-      },
-      { $sort: { totalRevenue: -1 } },
-      { $limit: 5 },
-    ]);
-    return topProducts;
-  } catch (error) {
-    throw new Error("Server Error: " + error.message);
-  }
-}
-
-// Get monthly trends
-async function getMonthlyTrends() {
-  try {
-    const [inwardTrends, outwardTrends] = await Promise.all([
-      Inward.aggregate([
-        { $group: { _id: { month: { $month: "$date" }, year: { $year: "$date" } }, totalInward: { $sum: "$amount" } } },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
-      ]),
-      Outward.aggregate([
-        { $group: { _id: { month: { $month: "$transportDetails.transportDate" }, year: { $year: "$transportDetails.transportDate" } }, totalOutward: { $sum: "$total" } } },
-        { $sort: { "_id.year": 1, "_id.month": 1 } },
-      ])
-    ]);
-    return { inwardTrends, outwardTrends };
-  } catch (error) {
-    throw new Error("Server Error: " + error.message);
-  }
-}
-
-// Get top customers
-async function getTopCustomers() {
-  try {
-    const topCustomers = await Outward.aggregate([
-      { $group: { _id: "$customerDetails.contactNumber", customerName: { $first: "$customerDetails.name" }, totalSpent: { $sum: "$total" }, totalOrders: { $sum: 1 } } },
-      { $sort: { totalSpent: -1 } },
-      { $limit: 5 },
-    ]);
-    return topCustomers;
-  } catch (error) {
-    throw new Error("Server Error: " + error.message);
-  }
-}
-
-async function getCustomerTransactions(customerId) {
-  try {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
     
-    // Check if 'customerId' is valid
-    if (!mongoose.Types.ObjectId.isValid(customerId)) {
-      return NextResponse.json({ error: "Invalid customerId" }, { status: 400 });
+    if (isNaN(start) || isNaN(end)) {
+      return NextResponse.json(
+        { error: "Invalid date format" },
+        { status: 400 }
+      );
     }
 
-    // Fetch customer details
-    const customerDetails = await Customer.findById(customerId);
-    if (!customerDetails) {
-      return NextResponse.json({ error: "Customer not found" }, { status: 404 });
+    // Set time boundaries
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+
+    if (start > end) {
+      return NextResponse.json(
+        { error: "startDate must be before endDate" },
+        { status: 400 }
+      );
     }
 
-    // Log the customer details and ID to ensure it matches the Outward data
-    console.log("customerDetails._id:", customerDetails._id);
+    // Fetch data in parallel
+    const [inwards, outwards] = await Promise.all([
+      Inward.find({
+        date: { $gte: start, $lte: end },
+      }).lean(),
+      Outward.find({
+        "transportDetails.transportDate": { $gte: start, $lte: end },
+      }).lean(),
+    ]);
 
-    // Fetch transactions related to the customer by matching customerDetails._id
-    const transactions = await Outward.find({
-     "customerDetails.name": customerDetails.customerName
+    // Process data
+    const tallyData = {};
+
+    // Process inward transactions
+    inwards.forEach((inward) => {
+      const dateKey = inward.date.toISOString().split("T")[0];
+      if (!tallyData[dateKey]) {
+        tallyData[dateKey] = {
+          date: dateKey,
+          inwards: [],
+          outwards: [],
+          totalInward: 0,
+          totalOutward: 0,
+          netBalance: 0,
+        };
+      }
+
+      const { _id, __v, ...cleanInward } = inward;
+      tallyData[dateKey].inwards.push(cleanInward);
+      tallyData[dateKey].totalInward += inward.amount;
     });
 
-    // Log transactions to check if any are found
-    console.log("Transactions found:", transactions);
+    // Process outward transactions
+    outwards.forEach((outward) => {
+      const transportDate = outward.transportDetails.transportDate;
+      const dateKey = transportDate.toISOString().split("T")[0];
+      
+      if (!tallyData[dateKey]) {
+        tallyData[dateKey] = {
+          date: dateKey,
+          inwards: [],
+          outwards: [],
+          totalInward: 0,
+          totalOutward: 0,
+          netBalance: 0,
+        };
+      }
 
-    // Return the customer details and the found transactions
-    return NextResponse.json({ customerDetails, transactions });
+      const { _id, __v, ...cleanOutward } = outward;
+      tallyData[dateKey].outwards.push(cleanOutward);
+      tallyData[dateKey].totalOutward += outward.total;
+    });
+
+    // Calculate net balance and sort results
+    const result = Object.values(tallyData)
+      .map((entry) => ({
+        ...entry,
+        netBalance: entry.totalInward - entry.totalOutward,
+      }))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return NextResponse.json({ success: true, data: result }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: "Server Error", message: error.message }, { status: 500 });
+    console.error("Error generating tally report:", error);
+    return NextResponse.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
   }
-}
+};

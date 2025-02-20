@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 // import Product from '../../../models/Product'; // Adjust the path based on your project structure
 import { Product } from '@/models/products';
-import mongooseConnection from '@/lib/mongodb';
 export async function GET(request, { params }) {
   const { productCode } = params;
 
   try {
-    mongooseConnection();
     const product = await Product.findOne({ code: productCode });
     if (!product) {
       return NextResponse.json({ message: 'Product not found' }, { status: 404 });

@@ -1,7 +1,6 @@
 // import Product from "@/models/Product";
 import { NextResponse } from "next/server";
 import { Product } from "@/models/products";
-import mongooseConnection from "@/lib/mongodb";
 
 export async function GET(req, { params }) {
   const { id } = await params; // `id` will be an array in a catch-all route
@@ -9,7 +8,6 @@ export async function GET(req, { params }) {
   console.log("Product ID:", ProductId); // Log to confirm extraction
 
   try {
-    mongooseConnection();
     // Validate the ID format
     if (!ProductId || ProductId.length !== 24) {
       return NextResponse.json({ message: "Invalid Product ID" }, { status: 400 });

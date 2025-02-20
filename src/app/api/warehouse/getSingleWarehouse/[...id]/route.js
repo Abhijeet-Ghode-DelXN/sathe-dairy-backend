@@ -1,4 +1,3 @@
-import mongooseConnection from "@/lib/mongodb";
 import Warehouse from "@/models/warehouse";
 import { NextResponse } from "next/server";
 
@@ -8,7 +7,6 @@ export async function GET(req, { params }) {
   console.log("User ID:", WarehouseId); // Log to confirm extraction
 
   try {
-    mongooseConnection();
     // Validate the ID format
     if (!WarehouseId || WarehouseId.length !== 24) {
       return NextResponse.json({ message: "Invalid Warehouse ID" }, { status: 400 });

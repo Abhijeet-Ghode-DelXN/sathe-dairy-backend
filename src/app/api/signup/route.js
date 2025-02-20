@@ -1,21 +1,40 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import mongooseConnection from '../../../lib/mongodb'; // MongoDB connection
-import { User } from '../../../models/user'; // User model
+import mongooseConnection from '../../../lib/mongodb';
+import { User } from '../../../models/user';
 import jwt from 'jsonwebtoken';
 
 export async function POST(req) {
-  
-  try {
-    await mongooseConnection(); // Ensure MongoDB connection
+  await mongooseConnection();
 
+  try {
     const body = await req.json();
-    const { fullName, email, password, mobileNumber, role = 'user' } = body;
+    const { fullName, email, password, mobileNumber, role = 'user', permissions = ['view'] } = body;
+
+    // Validate required fields
+    if (!fullName || !email || !password || !mobileNumber) {
+      return NextResponse.json(
+        { error: 'Missing required fields', details: 'All fields are required' },
+        { status: 400 }
+      );
+    }
 
     // Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return NextResponse.json({ error: 'Email already in use' }, { status: 400 });
+    const existingUserEmail = await User.findOne({ email });
+    if (existingUserEmail) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: 'Email address is already registered' },
+        { status: 400 }
+      );
+    }
+
+    // Check if mobile number already exists
+    const existingUserMobile = await User.findOne({ mobileNumber });
+    if (existingUserMobile) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: 'Mobile number is already registered' },
+        { status: 400 }
+      );
     }
 
     // Hash the password
@@ -28,19 +47,38 @@ export async function POST(req) {
       password: hashedPassword,
       mobileNumber,
       role,
+      permissions
     });
 
     // Generate a JWT token
     const token = jwt.sign(
       { userId: newUser._id, email: newUser.email, role: newUser.role },
       process.env.JWT_SECRET,
-      { expiresIn: '1h' } // Token expiry of 1 hour
+      { expiresIn: '14d' } // Extended token expiry to 14 days
     );
 
-    // Send token in the response
-    return NextResponse.json({ message: 'Signup Successful', token }, { status: 201 });
+    return NextResponse.json(
+      { message: 'Signup Successful', token },
+      { status: 201 }
+    );
   } catch (error) {
-    console.log('Error during signup:', error);
-    return NextResponse.json({ error: 'Signup Failed', details: error.message }, { status: 500 });
+    console.error('Error during signup:', error);
+    
+    // Handle MongoDB duplicate key errors
+    if (error.code === 11000) {
+      const field = Object.keys(error.keyPattern)[0];
+      return NextResponse.json(
+        { 
+          error: 'Validation failed',
+          details: `This ${field} is already registered`
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Signup Failed', details: 'An unexpected error occurred' },
+      { status: 500 }
+    );
   }
 }

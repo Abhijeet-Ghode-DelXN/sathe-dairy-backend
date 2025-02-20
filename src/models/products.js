@@ -1,25 +1,22 @@
 import mongoose, { Schema, model, models } from "mongoose";
 
-// Product schema defines the structure for product data
 const ProductSchema = new Schema(
-  
   {
-      // User details for the outward transaction
-        userId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "User", // Reference to the User model
-          required: true,
-        },
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
     productName: {
       type: String,
       required: true,
       trim: true,
     },
-    // productDescription: {
-    //   type: String,
-    //   required: true,
-    //   trim: true,
-    // },
+    productDescription: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     productPrice: {
       type: Number,
       required: true,
@@ -28,18 +25,14 @@ const ProductSchema = new Schema(
     productCode: {
       type: String,
       required: true,
-      unique: true, // Ensures the product code is unique
+      unique: true,
       trim: true,
     },
     category: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,  // Changed to ObjectId to match frontend
+      ref: 'Category',
       required: true,
-      trim: true,
     },
-    // image: {
-    //   type: String, // URL or file path for the product image
-    //   required: true,
-    // },
     sellingPrice: {
       type: Number,
       required: true,
@@ -51,11 +44,11 @@ const ProductSchema = new Schema(
       min: 0,
     },
     configuration: {
-      // numberOfPieces: {
-      //   type: Number,
-      //   required: true,
-      //   min: 0,
-      // },
+      numberOfPieces: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
       numberOfBags: {
         type: Number,
         required: true,
@@ -68,25 +61,27 @@ const ProductSchema = new Schema(
       },
     },
   },
-  { timestamps: true } // Automatically adds createdAt and updatedAt fields
+  { 
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
+  }
 );
 
-// Virtual field to calculate total cost based on quantity and selling price
+// Virtual fields
 ProductSchema.virtual("totalCost").get(function () {
-  return this.sellingPrice * this.quantity; // Selling price multiplied by quantity
+  return this.sellingPrice * this.quantity;
 });
 
-// Virtual field to calculate total pieces based on the configuration
 ProductSchema.virtual("totalPieces").get(function () {
-  return this.configuration.numberOfPieces * this.configuration.skuQuantity; // Total pieces based on config
+  return (this.configuration.numberOfPieces || 0) * this.configuration.skuQuantity;
 });
 
-// Virtual field to calculate total bags based on the configuration
 ProductSchema.virtual("totalBags").get(function () {
-  return this.configuration.numberOfBags * this.configuration.skuQuantity; // Total bags based on config
+  return this.configuration.numberOfBags * this.configuration.skuQuantity;
 });
 
-
+// Clear existing model to prevent OverwriteModelError
 delete mongoose.models.Product;
-// Export the Product model, creating it if it does not already exist
+
 export const Product = models.Product || model("Product", ProductSchema);
