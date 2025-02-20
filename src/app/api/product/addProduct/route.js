@@ -1,46 +1,98 @@
+// File: app/api/product/addProduct/route.js
 import { Product } from "@/models/products";
 import { verify } from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
+// Helper function to validate product data
+const validateProductData = (data) => {
+  const requiredFields = ['productCode', 'name', 'price'];
+  for (const field of requiredFields) {
+    if (!data[field]) {
+      throw new Error(`Missing required field: ${field}`);
+    }
+  }
+};
+
 export async function POST(request) {
   try {
-    const body = await request.json(); // Get the request body as JSON
-
-    // Get the authorization token from the headers
-    const token = request.headers.get("Authorization")?.split(" ")[1];
-    if (!token) {
+    // Get and validate the token
+    const authHeader = request.headers.get("Authorization");
+    if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: "Authorization token is missing" },
+        { error: "Invalid authorization header format" },
         { status: 401 }
       );
     }
 
-    // Verify the token and extract the userId
-    const decoded = verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId;
-
-    // Check if a product with the same productCode already exists
-    const existingProduct = await Product.findOne({ productCode: body.productCode });
-    if (existingProduct) {
+    const token = authHeader.split(" ")[1];
+    
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not configured');
       return NextResponse.json(
-        { error: `Product with code ${body.productCode} already exists.` },
-        { status: 409 } // Use 400 for bad request in case of duplicate
+        { error: "Server configuration error" },
+        { status: 500 }
       );
     }
 
-    // Construct the product object with the userId from the decoded token
+    // Verify token with explicit error handling
+    let decoded;
+    try {
+      decoded = verify(token, process.env.JWT_SECRET);
+    } catch (jwtError) {
+      console.error('JWT Verification failed:', jwtError.message);
+      return NextResponse.json(
+        { error: "Invalid or expired token" },
+        { status: 401 }
+      );
+    }
+
+    // Parse and validate request body
+    const body = await request.json();
+    try {
+      validateProductData(body);
+    } catch (validationError) {
+      return NextResponse.json(
+        { error: validationError.message },
+        { status: 400 }
+      );
+    }
+
+    // Check for duplicate product
+    const existingProduct = await Product.findOne({ 
+      productCode: body.productCode 
+    }).exec();
+    
+    if (existingProduct) {
+      return NextResponse.json(
+        { error: `Product with code ${body.productCode} already exists` },
+        { status: 409 }
+      );
+    }
+
+    // Create and save the new product
     const newProduct = new Product({
-      userId, // Use the extracted userId from the token
-      ...body, // Spread the rest of the fields from the request body
+      userId: decoded.userId,
+      ...body,
+      createdAt: new Date(),
+      updatedAt: new Date()
     });
 
-    // Save the new product to the database
-    const result = await newProduct.save();
+    const savedProduct = await newProduct.save();
 
-    // Return a success response with the created product data
-    return NextResponse.json(result, { status: 201 });
+    // Return success response
+    return NextResponse.json(
+      { 
+        message: "Product created successfully",
+        product: savedProduct 
+      }, 
+      { status: 201 }
+    );
+
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
+    console.error('Product creation error:', error);
+    return NextResponse.json(
+      { error: "Failed to create product" },
+      { status: 500 }
+    );
   }
 }
