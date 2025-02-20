@@ -29,7 +29,7 @@ const ProductSchema = new Schema(
       trim: true,
     },
     category: {
-      type: mongoose.Schema.Types.ObjectId,  // Changed to ObjectId to match frontend
+      type: String,  // Changed to ObjectId to match frontend
       ref: 'Category',
       required: true,
     },
