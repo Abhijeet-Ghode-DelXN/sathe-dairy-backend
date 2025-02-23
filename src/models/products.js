@@ -43,6 +43,10 @@ const ProductSchema = new Schema(
       required: true,
       min: 0,
     },
+    warehouse: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Warehouse',
+    },
     configuration: {
       numberOfPieces: {
         type: Number,

@@ -1,4 +1,5 @@
 import mongoose, { Schema, model, models } from "mongoose";
+import supplier from "./Suppliers";
 
 const InwardSchema = new Schema(
   {
@@ -23,20 +24,33 @@ const InwardSchema = new Schema(
       trim: true,
     },
     supplierDetails: {
-      name: {
+      supplierId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Supplier",
+        required: true,
+      },
+      supplierName: {
         type: String,
         required: true,
         trim: true,
       },
-      contactNumber: {
+      supplierMobileNo: {
         type: String,
         required: true,
         match: [/^\d{10}$/, "Please enter a valid contact number"],
       },
-      address: {
+      supplierEmailId: {
         type: String,
         required: true,
-        trim: true,
+      },
+      supplierGSTNo: {
+        type: String,
+        required: true,
+      },
+      supplierAddress: {
+        type: String,
+        required: true,
+        // trim: true,
       },
     },
     category: {

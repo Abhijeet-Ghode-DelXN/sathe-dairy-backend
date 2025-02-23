@@ -1,113 +1,226 @@
-import { NextResponse } from "next/server";
-// import { connectToDB } from "@utils/database"; // Adjust based on your DB connection
-import {Inward} from "../../../models/inward";
-import {Outward} from "../../../models/outward";
-import mongooseConnection from "@/lib/mongodb";
+// routes/analytics.js
+import express from 'express';
+import Outward from '../models/Outward';
+import Inward from '../models/Inward';
+import Product from '../models/Product';
+import Customer from '../models/Customer';
+import Supplier from '../models/Supplier';
 
-export const GET = async (req) => {
+const router = express.Router();
+
+// Middleware to verify user authentication
+const authenticateUser = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  req.userId = req.user._id;
+  next();
+};
+
+// 1. Financial Summary Analytics
+router.get('/financial-summary', authenticateUser, async (req, res) => {
   try {
-    await mongooseConnection();
-
-    const { searchParams } = new URL(req.url);
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-
-    // Validate input parameters
-    if (!startDate || !endDate) {
-      return NextResponse.json(
-        { error: "Both startDate and endDate are required" },
-        { status: 400 }
-      );
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    if (isNaN(start) || isNaN(end)) {
-      return NextResponse.json(
-        { error: "Invalid date format" },
-        { status: 400 }
-      );
-    }
-
-    // Set time boundaries
-    start.setUTCHours(0, 0, 0, 0);
-    end.setUTCHours(23, 59, 59, 999);
-
-    if (start > end) {
-      return NextResponse.json(
-        { error: "startDate must be before endDate" },
-        { status: 400 }
-      );
-    }
-
-    // Fetch data in parallel
-    const [inwards, outwards] = await Promise.all([
-      Inward.find({
-        date: { $gte: start, $lte: end },
-      }).lean(),
-      Outward.find({
-        "transportDetails.transportDate": { $gte: start, $lte: end },
-      }).lean(),
+    const [salesData, purchasesData, transportCosts, inventory] = await Promise.all([
+      Outward.aggregate([
+        { $match: { userId: req.userId } },
+        { $unwind: "$productDetails" },
+        {
+          $group: {
+            _id: null,
+            totalRevenue: { $sum: "$total" },
+            totalCOGS: { 
+              $sum: { 
+                $multiply: ["$productDetails.productPrice", "$productDetails.quantity"] 
+              }
+            },
+            totalOutstanding: { $sum: "$outstandingPayment" },
+            creditSales: { 
+              $sum: { 
+                $cond: [{ $eq: ["$paymentType", "Credit"] }, "$total", 0] 
+              } 
+            },
+          }
+        }
+      ]),
+      Inward.aggregate([
+        { $match: { userId: req.userId } },
+        { $group: { _id: null, totalPurchases: { $sum: "$amount" } } }
+      ]),
+      Promise.all([
+        Inward.aggregate([
+          { $match: { userId: req.userId } },
+          { $group: { _id: null, total: { $sum: "$transportDetails.rentalCost" } } }
+        ]),
+        Outward.aggregate([
+          { $match: { userId: req.userId } },
+          { $group: { _id: null, total: { $sum: "$transportDetails.rentalCost" } } }
+        ])
+      ]).then(([inward, outward]) => {
+        return (inward[0]?.total || 0) + (outward[0]?.total || 0);
+      }),
+      Product.aggregate([
+        { $match: { userId: req.userId } },
+        {
+          $group: {
+            _id: null,
+            totalValuation: { $sum: { $multiply: ["$quantity", "$productPrice"] } },
+          }
+        }
+      ])
     ]);
 
-    // Process data
-    const tallyData = {};
+    const response = {
+      totalRevenue: salesData[0]?.totalRevenue || 0,
+      totalCOGS: salesData[0]?.totalCOGS || 0,
+      grossProfit: (salesData[0]?.totalRevenue || 0) - (salesData[0]?.totalCOGS || 0),
+      totalPurchases: purchasesData[0]?.totalPurchases || 0,
+      totalTransportCost: transportCosts,
+      inventoryValuation: inventory[0]?.totalValuation || 0,
+      outstandingPayments: salesData[0]?.totalOutstanding || 0,
+      creditSales: salesData[0]?.creditSales || 0
+    };
 
-    // Process inward transactions
-    inwards.forEach((inward) => {
-      const dateKey = inward.date.toISOString().split("T")[0];
-      if (!tallyData[dateKey]) {
-        tallyData[dateKey] = {
-          date: dateKey,
-          inwards: [],
-          outwards: [],
-          totalInward: 0,
-          totalOutward: 0,
-          netBalance: 0,
-        };
-      }
-
-      const { _id, __v, ...cleanInward } = inward;
-      tallyData[dateKey].inwards.push(cleanInward);
-      tallyData[dateKey].totalInward += inward.amount;
-    });
-
-    // Process outward transactions
-    outwards.forEach((outward) => {
-      const transportDate = outward.transportDetails.transportDate;
-      const dateKey = transportDate.toISOString().split("T")[0];
-      
-      if (!tallyData[dateKey]) {
-        tallyData[dateKey] = {
-          date: dateKey,
-          inwards: [],
-          outwards: [],
-          totalInward: 0,
-          totalOutward: 0,
-          netBalance: 0,
-        };
-      }
-
-      const { _id, __v, ...cleanOutward } = outward;
-      tallyData[dateKey].outwards.push(cleanOutward);
-      tallyData[dateKey].totalOutward += outward.total;
-    });
-
-    // Calculate net balance and sort results
-    const result = Object.values(tallyData)
-      .map((entry) => ({
-        ...entry,
-        netBalance: entry.totalInward - entry.totalOutward,
-      }))
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-    return NextResponse.json({ success: true, data: result }, { status: 200 });
+    res.json(response);
   } catch (error) {
-    console.error("Error generating tally report:", error);
-    return NextResponse.json(
-      { success: false, error: "Internal server error" },
-      { status: 500 }
-    );
+    res.status(500).json({ error: 'Server error' });
   }
-};
+});
+
+// 2. Inventory Analysis
+router.get('/inventory-analysis', authenticateUser, async (req, res) => {
+  try {
+    const inventoryData = await Product.aggregate([
+      { $match: { userId: req.userId } },
+      {
+        $project: {
+          productName: 1,
+          quantity: 1,
+          valuation: { $multiply: ["$quantity", "$productPrice"] },
+          lowStock: { $lt: ["$quantity", 10] }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalValuation: { $sum: "$valuation" },
+          lowStockItems: {
+            $push: {
+              $cond: [
+                "$lowStock",
+                { productName: "$productName", quantity: "$quantity" },
+                "$$REMOVE"
+              ]
+            }
+          }
+        }
+      }
+    ]);
+
+    res.json({
+      totalInventoryValue: inventoryData[0]?.totalValuation || 0,
+      lowStockItems: inventoryData[0]?.lowStockItems || []
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 3. GST Summary Report
+router.get('/gst-summary', authenticateUser, async (req, res) => {
+  try {
+    const [salesGST, purchasesGST] = await Promise.all([
+      Outward.aggregate([
+        { $match: { userId: req.userId } },
+        {
+          $group: {
+            _id: "$customerDetails.customerGSTNo",
+            totalSales: { $sum: "$total" },
+            count: { $sum: 1 }
+          }
+        }
+      ]),
+      Inward.aggregate([
+        { $match: { userId: req.userId } },
+        {
+          $group: {
+            _id: "$supplierDetails.supplierGSTNo",
+            totalPurchases: { $sum: "$amount" },
+            count: { $sum: 1 }
+          }
+        }
+      ])
+    ]);
+
+    res.json({
+      salesByGST: salesGST,
+      purchasesByGST: purchasesGST
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 4. Transaction Trends
+router.get('/transaction-trends', authenticateUser, async (req, res) => {
+  try {
+    const [outwardTrends, inwardTrends] = await Promise.all([
+      Outward.aggregate([
+        { $match: { userId: req.userId } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+            count: { $sum: 1 },
+            totalAmount: { $sum: "$total" }
+          }
+        },
+        { $sort: { "_id": 1 } }
+      ]),
+      Inward.aggregate([
+        { $match: { userId: req.userId } },
+        {
+          $group: {
+            _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+            count: { $sum: 1 },
+            totalAmount: { $sum: "$amount" }
+          }
+        },
+        { $sort: { "_id": 1 } }
+      ])
+    ]);
+
+    res.json({
+      outwardTrends,
+      inwardTrends
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// 5. Customer/Supplier Ledgers
+router.get('/ledgers/:type/:id', authenticateUser, async (req, res) => {
+  try {
+    const { type, id } = req.params;
+    let transactions;
+
+    if (type === 'customer') {
+      transactions = await Outward.find({
+        userId: req.userId,
+        'customerDetails.customerId': id
+      }).sort({ createdAt: -1 });
+    } else if (type === 'supplier') {
+      transactions = await Inward.find({
+        userId: req.userId,
+        'supplierDetails.supplierId': id
+      }).sort({ createdAt: -1 });
+    } else {
+      return res.status(400).json({ error: 'Invalid ledger type' });
+    }
+
+    res.json(transactions);
+  } catch (error) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+export default router;
