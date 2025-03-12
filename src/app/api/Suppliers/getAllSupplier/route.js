@@ -1,4 +1,4 @@
-import supplier from "@/models/Suppliers";
+import {supplier} from "@/models/Suppliers";
 import { NextResponse } from "next/server";
 import mongooseConnection from "@/lib/mongodb";
 export async function GET() {

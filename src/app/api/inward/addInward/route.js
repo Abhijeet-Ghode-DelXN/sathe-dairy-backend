@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'; 
-import { Inward } from '../../../../models/inward'; // Adjust the path if needed
-import { verify } from 'jsonwebtoken'; // If you're using JWT
+import { NextResponse } from 'next/server';
+import { Inward } from '../../../../models/inward'; 
+import { User } from '../../../../models/user'; 
+import { verify } from 'jsonwebtoken';
 
 export async function POST(request) {
   try {
@@ -16,34 +17,25 @@ export async function POST(request) {
     }
 
     // Verify the token and extract the userId
-    const decoded = verify(token, process.env.JWT_SECRET); // Replace with your secret key
-    const userId = decoded.userId; // Assuming userId is included in the token payload
+    const decoded = verify(token, process.env.JWT_SECRET);
+    const userId = decoded.userId;
 
-    // Log the incoming rate and quantity values
-    const { rate, quantity } = body;
-    console.log('Rate:', rate);
-    console.log('Quantity:', quantity);
-
-    // Check for missing or invalid fields
-    if (
-      rate === undefined || 
-      quantity === undefined || 
-      isNaN(Number(rate)) || 
-      isNaN(Number(quantity))
-    ) {
+    // Fetch the user to get their name
+    const user = await User.findById(userId);
+    if (!user) {
       return NextResponse.json(
-        { error: 'Rate and quantity are required and must be valid numbers' },
-        { status: 400 }
+        { error: 'User not found' },
+        { status: 404 }
       );
     }
 
     // Convert rate and quantity to numbers
-    const numericRate = Number(rate);
-    const numericQuantity = Number(quantity);
+    const numericRate = Number(body.rate);
+    const numericQuantity = Number(body.quantity);
 
-    // Create the Inward document using the extracted userId and other request data
+    // Create the Inward document
     const inward = new Inward({
-      userId: userId, // Automatically set userId from the token
+      userId: userId,
       source: body.source,
       destination: body.destination,
       category: body.category,
@@ -61,11 +53,34 @@ export async function POST(request) {
       productDetails: body.productDetails,
     });
 
-    // Save the document to the database
-    await inward.save();
+    const savedInward = await inward.save();
 
+    // Check if inward ID is properly generated
+    if (!savedInward || !savedInward._id) {
+      throw new Error('Failed to create Inward document.');
+    }
+
+    const inwardId = savedInward._id.toString(); // Convert ObjectId to string
+    console.log('Generated Inward ID:', inwardId);
+
+    // Notify all admins only if inwardId exists
+    const admins = await User.find({ role: 'admin' });
+  
+    console.log("BEOFREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
+    for (const admin of admins) {
+      await User.findByIdAndUpdate(admin._id, {
+        $push: {
+          notifications: {
+            message: `New inward added by ${user.fullName} in warehouse ${body.warehouse} on ${new Date().toLocaleString()}`,
+            type: 'system',
+            inwardId:"2742384923849"
+          },
+        },
+      });
+    }
+    console.log("AFTERRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR")
     return NextResponse.json(
-      { message: 'Inward data created successfully', inward },
+      { message: 'Inward data created successfully, notification sent to admins', inward: savedInward },
       { status: 201 }
     );
   } catch (error) {

@@ -33,7 +33,6 @@ const UserSchema = new mongoose.Schema(
     mobileNumber: {
       type: String,
       required: true,
-      // unique: true,
       match: [/^\d{10}$/, 'Please enter a valid mobile number'],
     },
     role: {
@@ -55,20 +54,28 @@ const UserSchema = new mongoose.Schema(
     passwordResetExpires: {
       type: Date,
     },
+    notifications: [
+      {
+        message: { type: String, required: true },
+        type: { type: String, enum: ['order', 'payment', 'system', 'other'], default: 'other' },
+        isRead: { type: Boolean, default: false },
+        inwardId: { type: String,default:null},
+        outwardId: { type: String, default: null },
+        createdAt: { type: Date, default: Date.now },
+      }
+    ],
   },
   { timestamps: true }
 );
 
 // User Methods
 UserSchema.methods.generateRefreshToken = function () {
-  // Logic to generate a refresh token, possibly using a library like jsonwebtoken
   const refreshToken = "generated_refresh_token"; 
   this.refreshToken = refreshToken;
   return refreshToken;
 };
 
 UserSchema.methods.generatePasswordResetToken = function () {
-  // Logic to generate a password reset token
   const resetToken = "generated_reset_token";
   this.passwordResetToken = resetToken;
   this.passwordResetExpires = Date.now() + 3600000; // 1 hour expiration
@@ -102,18 +109,17 @@ UserSchema.statics.assignRole = async function (userID, role) {
 };
 
 UserSchema.statics.getRolePermissions = function (role) {
-  // Logic to get permissions based on role
   if (role === 'admin') {
-    return PERMISSIONS; // Admin can have all permissions
+    return PERMISSIONS;
   }
-  return ['view']; // Default permissions for a user
+  return ['view'];
 };
 
 // Static Methods for Password Management
 UserSchema.statics.forgotPassword = async function (email) {
   const user = await this.findOne({ email });
   if (!user) throw new Error("User not found");
-  return user.generatePasswordResetToken(); // Sends the reset token to user's email (implementation not shown)
+  return user.generatePasswordResetToken();
 };
 
 UserSchema.statics.resetPassword = async function (resetToken, newPassword) {
@@ -129,7 +135,27 @@ UserSchema.statics.resetPassword = async function (resetToken, newPassword) {
   await user.save();
 };
 
+// Static Methods for Notifications
+UserSchema.statics.addNotification = async function (userID, message, type = 'other') {
+  const user = await this.findById(userID);
+  if (!user) throw new Error("User not found");
 
+  user.notifications.push({ message, type });
+  await user.save();
+  return user;
+};
+
+UserSchema.statics.markNotificationAsRead = async function (userID, notificationId) {
+  const user = await this.findById(userID);
+  if (!user) throw new Error("User not found");
+
+  const notification = user.notifications.id(notificationId);
+  if (!notification) throw new Error("Notification not found");
+
+  notification.isRead = true;
+  await user.save();
+  return user;
+};
 
 // Create a non-unique index on mobileNumber (optional)
 UserSchema.index({ mobileNumber: 1 });

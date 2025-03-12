@@ -23,7 +23,7 @@ export const GET = async (req) => {
   }
 
   try {
-    mongooseConnection()
+   await mongooseConnection()
     const token = authorization.split(' ')[1]; // Get the token from the 'Authorization' header
     const decoded = await verifyToken(token); // Verify the token and extract userId
     const userId = decoded.userId;

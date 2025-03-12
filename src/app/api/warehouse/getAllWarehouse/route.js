@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    await mongooseConnection();
+    mongooseConnection();
     // Fetch all warehouses from the database
     const warehouses = await Warehouse.find();
 

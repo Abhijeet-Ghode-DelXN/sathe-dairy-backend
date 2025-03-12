@@ -1,3 +1,4 @@
+import mongooseConnection from "@/lib/mongodb";
 import { User } from "@/models/user";
 import { NextResponse } from "next/server";
 
@@ -7,6 +8,7 @@ export async function GET(req, { params }) {
   console.log("User ID:", userId); // Log to confirm extraction
 
   try {
+    await mongooseConnection();
     // Validate the ID format
     if (!userId || userId.length !== 24) {
       return NextResponse.json({ message: "Invalid user ID" }, { status: 400 });
