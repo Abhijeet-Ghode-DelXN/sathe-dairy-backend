@@ -7,7 +7,7 @@ export async function PATCH(req, { params }) {
   mongooseConnection()
   // Destructure the 'id' from the array since it's a catch-all route
   const { id } = await params; 
-  const supplierId = id[0]; // Access the first element of the array
+  const supplierId = id; // Access the first element of the array
 
   const updateData = await req.json(); // Extract the request body data (partial supplier data)
 
