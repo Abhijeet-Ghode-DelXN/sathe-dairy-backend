@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "2668e98e-8f3d-48ff-8cfa-b6879547b1f2"
+      }
+    },
+    "android": {
+      "package": "com.abhijit_ghode.sathedairybackend"
+    }
+  }
+}
