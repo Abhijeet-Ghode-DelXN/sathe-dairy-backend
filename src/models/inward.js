@@ -27,29 +27,29 @@ const InwardSchema = new Schema(
       supplierId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Supplier",
-        required: true,
+        // required: true,
       },
       supplierName: {
         type: String,
-        required: true,
+        // required: true,
         trim: true,
       },
       supplierMobileNo: {
         type: String,
-        required: true,
+        // required: true,
         match: [/^\d{10}$/, "Please enter a valid contact number"],
       },
       supplierEmailId: {
         type: String,
-        required: true,
+        // required: true,
       },
       supplierGSTNo: {
         type: String,
-        required: true,
+        // required: true,
       },
       supplierAddress: {
         type: String,
-        required: true,
+        // required: true,
         // trim: true,
       },
     },
@@ -154,7 +154,7 @@ const InwardSchema = new Schema(
       },
       bagQuantity: {
         type: Number,
-        required: true,
+        // required: true,
         min: 0,
       },
     }],

@@ -1,62 +1,79 @@
-// /api/analytics/ledgers/customer/67a3218617ba004e79f43cce?startDate=&endDate=
-// /api/analytics/ledgers/supplier/60a3218617ba004e79f43cce?startDate=&endDate=
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
 import mongooseConnection from '@/lib/mongodb';
 import { Outward } from '@/models/outward';
 import { Inward } from '@/models/inward';
 
-// Helper function to verify authentication
-const authenticateUser = (request) => {
-  // TODO: Implement proper authentication check
-  // For now, return a placeholder ObjectId string
-  return "66a3a9a3f8d8a9a7f8d8a9a8"; // Placeholder ObjectId
-};
-
 export async function GET(request, { params }) {
   try {
-    const userId = authenticateUser(request);
+    await mongooseConnection();
     const { type, id } = params;
-    mongooseConnection();
 
-    // Await params correctly
+    // Get query parameters
     const searchParams = request.nextUrl.searchParams;
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    const objectId = new mongoose.Types.ObjectId(id); // Convert ID to ObjectId
+    // Validate ID
+    if (!id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 });
+    }
 
+    // Build date filter (date-only filtering, time ignored)
     const dateFilter = {};
     if (startDate && endDate) {
+      const start = new Date(startDate);
+      start.setUTCHours(0, 0, 0, 0); // Set to start of the day
+
+      const end = new Date(endDate);
+      end.setUTCHours(23, 59, 59, 999); // Set to end of the day
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
+      }
+
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
+        $gte: start,
+        $lte: end
       };
     }
 
-    console.log("Querying Transactions:", { type, id, dateFilter });
+    // Build query
+    let query;
+    let model;
 
-    let transactions;
     if (type === 'customer') {
-      transactions = await Outward.find({
-        userId,
-        'customerDetails.customerId': objectId,
-        ...dateFilter,
-      }).sort({ createdAt: -1 });
+      model = Outward;
+      query = {
+        'customerDetails.customerId': mongoose.Types.ObjectId.isValid(id)
+          ? new mongoose.Types.ObjectId(id)
+          : id,
+        ...dateFilter
+      };
     } else if (type === 'supplier') {
-      transactions = await Inward.find({
-        userId,
-        'supplierDetails.supplierId': objectId,
-        ...dateFilter,
-      }).sort({ createdAt: -1 });
+      model = Inward;
+      query = {
+        'supplierDetails.supplierId': mongoose.Types.ObjectId.isValid(id)
+          ? new mongoose.Types.ObjectId(id)
+          : id,
+        ...dateFilter
+      };
     } else {
       return NextResponse.json({ error: 'Invalid ledger type' }, { status: 400 });
     }
 
-    console.log("Fetched Transactions:", transactions);
+    // Execute query
+    const transactions = await model.find(query)
+      .sort({ createdAt: -1 })
+      .lean(); // Convert to plain JS objects
+
     return NextResponse.json(transactions);
+
   } catch (error) {
     console.error("Error in ledgers API:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
