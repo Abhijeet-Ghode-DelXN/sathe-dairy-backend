@@ -3,16 +3,13 @@ import { Outward } from "@/models/outward"; // Import Outward model
 import { NextResponse } from "next/server";
 import mongoose from 'mongoose';
 import { Product } from "@/models/products";
-import mongooseConnection from "@/lib/mongodb";
 export async function GET(req, { params }) {
-
   const { id } = await params; // `id` will be an array in a catch-all route
   
   const supplierId = Array.isArray(id) ? id[0] : id; // Extract the first segment
   console.log("supplier ID:", supplierId); // Log to confirm extraction
 
   try {
-    await mongooseConnection();
     // Validate the ID format
     if (!supplierId || supplierId.length !== 24) {
       return NextResponse.json({ message: "Invalid supplier ID" }, { status: 400 });

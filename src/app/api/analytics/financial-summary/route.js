@@ -25,17 +25,34 @@ export async function GET(request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    // Better date filtering logic with debug information
     const dateFilter = {};
     if (startDate && endDate) {
+      // Create proper date objects
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Ensure end date covers the entire day
+      end.setHours(23, 59, 59, 999);
+      
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: start,
+        $lte: end
       };
+      
+      console.log("Financial Summary - Date filter:", JSON.stringify({
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      }));
+    } else {
+      console.log("Financial Summary - No date filter applied");
     }
+
+    console.log("Financial Summary - Query filter:", JSON.stringify(dateFilter));
 
     const [salesData, purchasesData, transportCosts, inventory] = await Promise.all([
       Outward.aggregate([
-        { $match: { userId } },
+        { $match: dateFilter },
         { $unwind: "$productDetails" },
         {
           $group: {
@@ -56,23 +73,23 @@ export async function GET(request) {
         }
       ]),
       Inward.aggregate([
-        { $match: { userId } },
+        { $match: dateFilter },
         { $group: { _id: null, totalPurchases: { $sum: "$amount" } } }
       ]),
       Promise.all([
         Inward.aggregate([
-          { $match: { userId } },
+          { $match: dateFilter },
           { $group: { _id: null, total: { $sum: "$transportDetails.rentalCost" } } }
         ]),
         Outward.aggregate([
-          { $match: { userId } },
+          { $match: dateFilter },
           { $group: { _id: null, total: { $sum: "$transportDetails.rentalCost" } } }
         ])
       ]).then(([inward, outward]) => {
         return (inward[0]?.total || 0) + (outward[0]?.total || 0);
       }),
       Product.aggregate([
-        { $match: { userId } },
+        // Products don't need date filtering
         {
           $group: {
             _id: null,
@@ -81,6 +98,13 @@ export async function GET(request) {
         }
       ])
     ]);
+
+    console.log("Financial Summary - Results:", {
+      hasSalesData: salesData.length > 0,
+      hasPurchasesData: purchasesData.length > 0,
+      transportCosts,
+      hasInventory: inventory.length > 0
+    });
 
     const response = {
       totalRevenue: salesData[0]?.totalRevenue || 0,

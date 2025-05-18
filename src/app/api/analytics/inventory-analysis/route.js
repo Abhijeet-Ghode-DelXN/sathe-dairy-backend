@@ -11,11 +11,10 @@ const authenticateUser = (request) => {
 
 export async function GET(request) {
   try {
-    const userId = authenticateUser(request);
-    mongooseConnection();
+    await mongooseConnection();
+    console.log("Inventory Analysis - Starting query");
 
     const inventoryData = await Product.aggregate([
-      { $match: { userId } },
       {
         $project: {
           productName: 1,
@@ -28,6 +27,7 @@ export async function GET(request) {
         $group: {
           _id: null,
           totalValuation: { $sum: "$valuation" },
+          totalProducts: { $sum: 1 },
           lowStockItems: {
             $push: {
               $cond: [
@@ -41,8 +41,15 @@ export async function GET(request) {
       }
     ]);
 
+    console.log("Inventory Analysis - Results:", {
+      hasData: inventoryData.length > 0,
+      totalProducts: inventoryData[0]?.totalProducts || 0,
+      lowStockCount: inventoryData[0]?.lowStockItems?.length || 0
+    });
+
     return NextResponse.json({
       totalInventoryValue: inventoryData[0]?.totalValuation || 0,
+      totalProducts: inventoryData[0]?.totalProducts || 0,
       lowStockItems: inventoryData[0]?.lowStockItems || []
     });
   } catch (error) {

@@ -19,19 +19,35 @@ export async function GET(req) {
       );
     }
 
-    // Parse dates in UTC
-    const start = new Date(`${startDate}T00:00:00Z`);
-    const end = new Date(`${endDate}T23:59:59.999Z`);
+    // Create proper date objects
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    // Ensure proper time range (start of day to end of day)
+    start.setHours(0, 0, 0, 0);  // 00:00:00
+    end.setHours(23, 59, 59, 999); // 23:59:59
+    
+    console.log("Tally Report - Date range:", {
+      start: start.toISOString(),
+      end: end.toISOString()
+    });
+
+    // Use createdAt field for consistent date filtering
+    const dateQuery = {
+      createdAt: { $gte: start, $lte: end }
+    };
+    
+    console.log("Tally Report - Date query:", JSON.stringify(dateQuery));
 
     // Fetch Inward Summary
     const inwardSummary = await Inward.aggregate([
-      { $match: { date: { $gte: start, $lte: end } } }, // Fixed missing closing brace
+      { $match: dateQuery }, 
       { $group: { _id: null, total: { $sum: "$amount" }, count: { $sum: 1 } } }
     ]);
 
     // Fetch Outward Summary
     const outwardSummary = await Outward.aggregate([
-      { $match: { "transportDetails.transportDate": { $gte: start, $lte: end } } }, // Fixed missing closing brace
+      { $match: dateQuery }, 
       { $group: { 
           _id: null, 
           total: { $sum: "$total" }, 
@@ -54,6 +70,13 @@ export async function GET(req) {
       },
       netFlow: (inwardSummary[0]?.total || 0) - (outwardSummary[0]?.total || 0)
     };
+
+    console.log("Tally Report - Results:", {
+      inwardTotal: tally.inward.total,
+      inwardCount: tally.inward.transactions,
+      outwardTotal: tally.outward.total,
+      outwardCount: tally.outward.transactions
+    });
 
     return NextResponse.json(tally);
     

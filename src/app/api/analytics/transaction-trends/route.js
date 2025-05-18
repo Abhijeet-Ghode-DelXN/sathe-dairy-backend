@@ -20,20 +20,33 @@ export async function GET(request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    // Convert string dates to JavaScript Date objects
+    // Improved date filtering logic
     const dateFilter = {};
     if (startDate && endDate) {
+      // Create proper date objects
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Ensure end date covers the entire day
+      end.setHours(23, 59, 59, 999);
+      
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate),
+        $gte: start,
+        $lte: end,
       };
+      
+      console.log("Transaction Trends - Date filter:", JSON.stringify({
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      }));
+    } else {
+      console.log("Transaction Trends - No date filter applied");
     }
 
-    console.log("Date Filter:", dateFilter);
+    console.log("Transaction Trends - Query:", JSON.stringify(dateFilter));
 
     const [outwardTrends, inwardTrends] = await Promise.all([
       Outward.aggregate([
-        { $match: { userId } },
         { $match: dateFilter },
         {
           $group: {
@@ -45,7 +58,6 @@ export async function GET(request) {
         { $sort: { "_id": 1 } }
       ]),
       Inward.aggregate([
-        { $match: { userId } },
         { $match: dateFilter },
         {
           $group: {
@@ -58,8 +70,10 @@ export async function GET(request) {
       ])
     ]);
 
-    console.log("Outward Trends:", outwardTrends);
-    console.log("Inward Trends:", inwardTrends);
+    console.log("Transaction Trends - Results:", {
+      outwardTrendsCount: outwardTrends.length,
+      inwardTrendsCount: inwardTrends.length
+    });
 
     return NextResponse.json({ outwardTrends, inwardTrends });
 

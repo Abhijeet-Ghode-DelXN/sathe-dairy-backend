@@ -21,17 +21,41 @@ export async function GET(request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
+    // Better date filtering logic with debug information
     const dateFilter = {};
     if (startDate && endDate) {
+      // Create proper date objects
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      // Ensure end date covers the entire day
+      end.setHours(23, 59, 59, 999);
+      
       dateFilter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: start,
+        $lte: end
       };
+      
+      console.log("GST Summary - Date filter:", JSON.stringify({
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      }));
+    } else {
+      console.log("GST Summary - No date filter applied");
     }
+
+    // Add clear logging for queries
+    console.log("GST Summary - Outward query:", JSON.stringify({ 
+      ...dateFilter
+    }));
+    
+    console.log("GST Summary - Inward query:", JSON.stringify({ 
+      ...dateFilter
+    }));
 
     const [salesGST, purchasesGST] = await Promise.all([
       Outward.aggregate([
-        { $match: { userId } },
+        { $match: { ...dateFilter } },
         { $group: {
             _id: "$customerDetails.customerGSTNo",
             totalSales: { $sum: "$total" },
@@ -40,7 +64,7 @@ export async function GET(request) {
         }
       ]),
       Inward.aggregate([
-        { $match: { userId } },
+        { $match: { ...dateFilter } },
         { $group: {
             _id: "$supplierDetails.supplierGSTNo",
             totalPurchases: { $sum: "$amount" },
@@ -49,6 +73,11 @@ export async function GET(request) {
         }
       ])
     ]);
+
+    console.log("GST Summary - Results:", {
+      salesGSTCount: salesGST.length,
+      purchasesGSTCount: purchasesGST.length
+    });
 
     return NextResponse.json({
       salesByGST: salesGST,

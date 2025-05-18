@@ -4,10 +4,15 @@ import mongooseConnection from '@/lib/mongodb';
 import { Outward } from '@/models/outward';
 import { Inward } from '@/models/inward';
 
-export async function GET(request, { params }) {
+export async function GET(request, context) {
   try {
     await mongooseConnection();
-    const { type, id } = params;
+    
+    // The proper way to handle params in App Router
+    const type = context.params?.type;
+    const id = context.params?.id;
+    
+    console.log("Ledgers API - Type and ID:", { type, id });
 
     // Get query parameters
     const searchParams = request.nextUrl.searchParams;
@@ -36,6 +41,11 @@ export async function GET(request, { params }) {
         $gte: start,
         $lte: end
       };
+      
+      console.log("Ledgers API - Date filter:", JSON.stringify({
+        startDate: start.toISOString(),
+        endDate: end.toISOString()
+      }));
     }
 
     // Build query
@@ -61,11 +71,15 @@ export async function GET(request, { params }) {
     } else {
       return NextResponse.json({ error: 'Invalid ledger type' }, { status: 400 });
     }
+    
+    console.log("Ledgers API - Query:", JSON.stringify(query));
 
     // Execute query
     const transactions = await model.find(query)
       .sort({ createdAt: -1 })
       .lean(); // Convert to plain JS objects
+      
+    console.log(`Ledgers API - Found ${transactions.length} transactions`);
 
     return NextResponse.json(transactions);
 

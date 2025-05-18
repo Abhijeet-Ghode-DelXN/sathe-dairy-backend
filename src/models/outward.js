@@ -43,7 +43,7 @@ const OutwardSchema = new Schema(
       },
       customerEmailId: {
         type: String,
-        // required: true,
+        required: true,
       },
     },
 
