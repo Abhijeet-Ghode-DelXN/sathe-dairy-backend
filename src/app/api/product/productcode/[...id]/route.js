@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 // import Product from '../../../models/Product'; // Adjust the path based on your project structure
 import { Product } from '@/models/products';
+import mongooseConnection from '@/lib/mongodb';
 export async function GET(request, { params }) {
+  await mongooseConnection();
   const { productCode } = params;
 
   try {

@@ -13,6 +13,7 @@ const authenticateUser = (request) => {
 };
 
 export async function GET(request) {
+  await mongooseConnection();
   try {
     const userId = authenticateUser(request);
     mongooseConnection();

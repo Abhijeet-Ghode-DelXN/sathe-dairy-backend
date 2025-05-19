@@ -8,6 +8,7 @@ export async function GET(req, { params }) {
   console.log("transpot ID:", TransportDetailsId); // Log to confirm extraction
 
   try {
+    await mongooseConnection();
     // Validate the ID format
     if (!TransportDetailsId || TransportDetailsId.length !== 24) {
       return NextResponse.json({ message: "Invalid TransportDetails ID" }, { status: 400 });

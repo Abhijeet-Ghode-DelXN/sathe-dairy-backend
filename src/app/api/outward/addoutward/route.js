@@ -95,7 +95,7 @@ export async function POST(request) {
         body.userId = userId;
 
         // Validate required fields
-        if (!body.customerDetails || !body.customerDetails.customerId) {
+        if (!body.customerDetails.customerId) {
             return NextResponse.json(
                 { error: 'Customer details are required' },
                 { status: 400 }

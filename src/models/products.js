@@ -35,8 +35,9 @@ const ProductSchema = new Schema(
     },
     sellingPrice: {
       type: Number,
-      required: true,
-      min: 0,
+      // required: true,
+      // min: 0,
+      default: 0,
     },
     quantity: {
       type: Number,
@@ -61,7 +62,8 @@ const ProductSchema = new Schema(
       skuQuantity: {
         type: Number,
         required: true,
-        min: 0,
+        // min: 0,
+        default: 0,
       },
       GST: {
         type: Number,

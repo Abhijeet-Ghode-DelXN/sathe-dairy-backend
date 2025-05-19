@@ -2,12 +2,14 @@
 import { NextResponse } from "next/server";
 
 import { Inward } from "@/models/inward";
+import mongooseConnection from "@/lib/mongodb";
 export async function GET(req, { params }) {
   const { id } = await params; // `id` will be an array in a catch-all route
   const InwardId = Array.isArray(id) ? id[0] : id; // Extract the first segment
   console.log("Inward ID:", InwardId); // Log to confirm extraction
 
   try {
+    await mongooseConnection();
     // Validate the ID format
     if (!InwardId || InwardId.length !== 24) {
       return NextResponse.json({ message: "Invalid Inward ID" }, { status: 400 });

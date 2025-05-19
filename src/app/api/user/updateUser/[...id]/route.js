@@ -2,8 +2,10 @@ import { User } from "@/models/user";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose"; // Import mongoose to validate ObjectId
 import bcrypt from "bcryptjs"; // Import bcrypt for hashing the password
+import mongooseConnection from "@/lib/mongodb";
 
 export async function PATCH(req, { params }) {
+  await mongooseConnection();
   const { id } = await params;
   const userId = id[0]; // Access the first element of the array
 

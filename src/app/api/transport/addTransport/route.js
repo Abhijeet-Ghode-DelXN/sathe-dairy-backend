@@ -3,9 +3,11 @@ import { TransportDetails } from "@/models/transport";
 import { Outward } from "@/models/outward";
 import { Inward } from "@/models/inward";
 import { NextResponse } from "next/server";
+import mongooseConnection from "@/lib/mongodb";
 
 export async function POST(request) {
   try {
+    await mongooseConnection();
     const body = await request.json();
     console.log("Request Body:", body);
 

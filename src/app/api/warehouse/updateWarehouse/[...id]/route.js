@@ -2,8 +2,10 @@ import { Warehouse } from "@/models/warehouse";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose"; // Import mongoose to validate ObjectId
 import jwt from "jsonwebtoken"; // Import a library for JWT verification (if you're using JWT)
+import mongooseConnection from "@/lib/mongodb";
 
 export async function PATCH(req, { params }) {
+  await mongooseConnection();
   // Destructure the 'id' from the array since it's a catch-all route
   const { id } = await params; 
   const WarehouseId = id[0]; // Access the first element of the array

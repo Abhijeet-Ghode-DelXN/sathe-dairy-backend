@@ -2,9 +2,10 @@ import { NextResponse } from 'next/server';
 import { Inward } from '../../../../models/inward'; 
 import { User } from '../../../../models/user'; 
 import { verify } from 'jsonwebtoken';
-
+import mongooseConnection from "@/lib/mongodb";
 export async function POST(request) {
   try {
+    await mongooseConnection();
     const body = await request.json();
 
     // Get the token from the Authorization header

@@ -15,6 +15,7 @@ const authenticateUser = (request) => {
 };
 
 export async function GET(request) {
+  await mongooseConnection();
   // const session = await getServerSession(authOptions);
   // if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

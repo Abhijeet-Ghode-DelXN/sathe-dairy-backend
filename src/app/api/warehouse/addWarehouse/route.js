@@ -1,9 +1,11 @@
+import mongooseConnection from "@/lib/mongodb";
 import Warehouse from "@/models/warehouse";
 import { verify } from "jsonwebtoken";
 import { NextResponse } from "next/server";
 
 export async function POST(request) {
   try {
+    await mongooseConnection();
     // Await to get the request body as JSON
     const body = await request.json();
 

@@ -6,7 +6,9 @@ const uri = process.env.MONGO_DB_URI; // Replace with your MongoDB URI
 const client = new MongoClient(uri);
 
 export async function GET() {
+  
   try {
+    await mongooseConnection();
     // Connect to MongoDB
     await client.connect();
     const db = client.db('sathe_dairy_admin'); // Replace with your DB name

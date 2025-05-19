@@ -3,6 +3,7 @@ import { Outward } from "@/models/outward"; // Import Outward model
 import { NextResponse } from "next/server";
 import mongoose from 'mongoose';
 import { Product } from "@/models/products";
+import mongooseConnection from "@/lib/mongodb";
 export async function GET(req, { params }) {
   const { id } = await params; // `id` will be an array in a catch-all route
   
@@ -10,6 +11,7 @@ export async function GET(req, { params }) {
   console.log("Customer ID:", CustomerId); // Log to confirm extraction
 
   try {
+    await mongooseConnection();
     // Validate the ID format
     if (!CustomerId || CustomerId.length !== 24) {
       return NextResponse.json({ message: "Invalid Customer ID" }, { status: 400 });

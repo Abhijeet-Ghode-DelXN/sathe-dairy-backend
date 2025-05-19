@@ -5,7 +5,7 @@ import jwt from "jsonwebtoken";
 import mongooseConnection from "@/lib/mongodb";
 
 export async function PATCH(req, context) {
-  mongooseConnection();
+  await mongooseConnection();
 
   const { id } = await context.params; // ✅ Await params
   const CategoryId = Array.isArray(id) ? id[0] : id;

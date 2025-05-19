@@ -36,14 +36,14 @@ const OutwardSchema = new Schema(
         required: true,
         match: [/^\d{10}$/, "Please enter a valid contact number"],
       },
-      address: { type: String, required: true, trim: true },
+      address: { type: String, trim: true },
       customerAddress: {
         type: String,
-        required: true,
+        // required: true,
       },
       customerEmailId: {
         type: String,
-        required: true,
+        // required: true,
       },
     },
 

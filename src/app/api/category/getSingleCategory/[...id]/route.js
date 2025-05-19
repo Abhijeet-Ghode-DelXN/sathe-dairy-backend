@@ -2,7 +2,9 @@
 import { NextResponse } from "next/server";
 
 import { Category } from "@/models/categories";
+import mongooseConnection from "@/lib/mongodb";
 export async function GET(req, { params }) {
+  await mongooseConnection();
   const { id } = await params; // `id` will be an array in a catch-all route
   const CategoryId = Array.isArray(id) ? id[0] : id; // Extract the first segment
   console.log("Category ID:", CategoryId); // Log to confirm extraction

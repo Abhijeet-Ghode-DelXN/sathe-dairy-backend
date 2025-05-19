@@ -22,7 +22,7 @@ export async function OPTIONS() {
 
 export async function POST(request) {
   try {
-    mongooseConnection();
+    await mongooseConnection();
     const body = await request.json();
 
     // CORS Headers
